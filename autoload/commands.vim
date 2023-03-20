@@ -1,10 +1,9 @@
 vim9script
 
-import './ghci.vim' as ghci
+import autoload './ghci.vim'
 
 export def Ghci(cmd: string)
-  ghci.SendCommand(cmd)
-  var lines = ghci.ReadLines()
+  var lines = ghci.SendCommand(cmd)
   var popup_win = popup_create(lines, {
     title: 'Result',
     border: [],
@@ -31,8 +30,8 @@ export def Info(expr: string, range: number, bang = '')
     @i = i
   endif
 
-  ghci.SendCommand(':info' .. bang .. ' ' .. query)
-  CursorPopup('Info')
+  var lines = ghci.SendCommand(':info' .. bang .. ' ' .. query)
+  CursorPopup('Info', lines)
 enddef
 
 export def TypeAt(range: number)
@@ -54,8 +53,8 @@ export def TypeAt(range: number)
       .. ' '
       .. (col("'>") + 1)
 
-  ghci.SendCommand(cmd)
-  CursorPopup('Type')
+  var lines = ghci.SendCommand(cmd)
+  CursorPopup('Type', lines)
 enddef
 
 export def HaskellComplete(findstart: number, base: string): any
@@ -68,34 +67,18 @@ export def HaskellComplete(findstart: number, base: string): any
     return start
   enddef
 
-  def Complete()
+  if findstart == 1
+    return FindStart()
+  else
     var pattern: string
     if getline('.') =~ '^import'
       pattern = 'import ' .. base
     else
       pattern = base
     endif
-    ghci.SendCommand(':complete repl "' .. pattern .. '"')
-  enddef
+    var lines = ghci.SendCommand(':complete repl "' .. pattern .. '"')
 
-  if findstart == 1
-    return FindStart()
-  else
-    Complete()
-
-    # Ignore first response
-    ghci.Read()
-
-    var numCompletions = split(ghci.Read())[0]
-
-    var respIdx = 0
-    var matches = []
-    while respIdx < str2nr(numCompletions)
-      var match = substitute(ghci.Read(), '"', '', 'ge')
-      matches->add(match)
-      respIdx += 1
-    endwhile
-
+    var matches = lines[1 : ]->map((_, match) => substitute(match, '"', '', 'ge'))
     return {words: matches}
   endif
 enddef
@@ -103,21 +86,20 @@ enddef
 export def Module()
   var pos = getpos('.')
   :g/^module/execute 'y m | @m = split(@m)[1]'
-  ghci.SendCommand(':module + *' .. @m)
+  ghci.SendCommand(':module + *' .. @m, 0)
   setpos('.', pos)
 enddef
 
 export def Add()
-  ghci.SendCommand(':add *' .. expand("%:p"))
+  ghci.SendCommand(':add *' .. expand("%:p"), 0)
 enddef
 
 export def Reload()
-  ghci.SendCommand(':reload!')
+  ghci.SendCommand(':reload!', 0)
   Module()
 enddef
 
-def CursorPopup(title: string): number
-  var lines = ghci.ReadLines()
+def CursorPopup(title: string, lines: list<string>): number
   var popup_win = popup_atcursor(lines, {
     title: title,
     border: []
