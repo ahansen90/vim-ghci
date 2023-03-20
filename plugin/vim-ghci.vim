@@ -14,7 +14,7 @@ endif
 # command! -nargs=1 -bang GhciStart ghci.GhciStart(<q-args>)
 
 command! -nargs=1 Ghci commands.Ghci(<q-args>)
-command! -bang -nargs=? -range GhciInfo commands.Info(<q-args>, <range>, <bang>)
+command! -bang -nargs=? -range GhciInfo commands.Info(<q-args>, <range>, "<bang>")
 command! -nargs=0 -range GhciTypeAt commands.TypeAt(<range>)
 command! -nargs=0 GhciAddModule {
   commands.Add()
