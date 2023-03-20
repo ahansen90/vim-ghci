@@ -15,7 +15,7 @@ export def Ghci(cmd: string)
   setbufvar(popup_buf, '&syntax', 'haskell')
 enddef
 
-export def Info(expr: string, range: number, bang = '')
+def GetQuery(expr: string, range: number): string
   var query: string
 
   if range == 0 && expr == ''
@@ -30,8 +30,19 @@ export def Info(expr: string, range: number, bang = '')
     @i = i
   endif
 
+  return query
+enddef
+
+export def Info(expr: string, range: number, bang = '')
+  var query = GetQuery(expr, range)
   var lines = ghci.SendCommand(':info' .. bang .. ' ' .. query)
   CursorPopup('Info', lines)
+enddef
+
+export def Instances(expr: string, range: number)
+  var query = GetQuery(expr, range)
+  var lines = ghci.SendCommand(':instances ' .. query)
+  CursorPopup('Instances', lines)
 enddef
 
 export def TypeAt(range: number)
