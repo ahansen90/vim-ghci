@@ -2,6 +2,11 @@ vim9script
 
 ch_logfile('/tmp/vim-ghci-log', 'w')
 
+var buf = bufnr('ghci', 1)
+bufload(buf)
+setbufvar(buf, '&syntax', 'haskell')
+setbufvar(buf, '&buftype', 'nofile')
+
 export def GhciConnect(): channel
   var ghci = ch_open('unix:' .. g:vim_ghci_socket, {
     mode: 'nl'
@@ -33,7 +38,8 @@ export def ReadLines(ghci: channel): list<string>
   var lines = []
   var txt = ''
   while resp != ''
-    lines->add(resp)
+    var cleanedResp = substitute(resp, '\e\[[0-9;]*m', '', 'g')
+    lines->add(cleanedResp)
     resp = ch_read(ghci)
   endwhile
 
@@ -42,9 +48,7 @@ enddef
 
 export def SendCommand(cmd: string, timeout = 200): list<string>
   var ghci = GhciConnect()
-  ch_setoptions(ghci, {
-    timeout: timeout
-  })
+  ch_setoptions(ghci, {timeout: timeout})
   ch_sendraw(ghci, cmd .. '')
   var lines: list<string>
   if timeout > 0
@@ -54,4 +58,12 @@ export def SendCommand(cmd: string, timeout = 200): list<string>
   endif
   ch_close(ghci)
   return lines
+enddef
+
+export def AddLinesToBuffer(cmd: string, lines: list<string>)
+  appendbufline(buf, '$', '>>> ' .. cmd)
+
+  for line in lines
+    appendbufline(buf, '$', line)
+  endfor
 enddef

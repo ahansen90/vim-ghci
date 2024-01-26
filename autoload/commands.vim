@@ -2,8 +2,10 @@ vim9script
 
 import autoload './ghci.vim'
 
-export def Ghci(cmd: string)
-  var lines = ghci.SendCommand(cmd)
+export def Ghci(cmd: string, range: number)
+  var query = GetQuery(cmd, range)
+
+  var lines = ghci.SendCommand(query)
   var popup_win = popup_create(lines, {
     title: 'Result',
     border: [],
@@ -13,6 +15,8 @@ export def Ghci(cmd: string)
   var popup_buf = winbufnr(popup_win)
   appendbufline(popup_buf, 0, '>>> ' .. cmd)
   setbufvar(popup_buf, '&syntax', 'haskell')
+
+  ghci.AddLinesToBuffer(query, lines)
 enddef
 
 def GetQuery(expr: string, range: number): string
@@ -35,13 +39,17 @@ enddef
 
 export def Info(expr: string, range: number, bang = '')
   var query = GetQuery(expr, range)
-  var lines = ghci.SendCommand(':info' .. bang .. ' ' .. query)
+  var cmd = ':info' .. bang .. ' ' .. query
+  var lines = ghci.SendCommand(cmd)
+  ghci.AddLinesToBuffer(cmd, lines)
   CursorPopup('Info', lines)
 enddef
 
 export def Instances(expr: string, range: number)
   var query = GetQuery(expr, range)
-  var lines = ghci.SendCommand(':instances ' .. query)
+  var cmd = ':instances ' .. query
+  var lines = ghci.SendCommand(cmd)
+  ghci.AddLinesToBuffer
   CursorPopup('Instances', lines)
 enddef
 
@@ -65,16 +73,22 @@ export def TypeAt(range: number)
       .. (col("'>") + 1)
 
   var lines = ghci.SendCommand(cmd)
+  ghci.AddLinesToBuffer(cmd, lines)
   CursorPopup('Type', lines)
 enddef
 
 export def HaskellComplete(findstart: number, base: string): any
+  var isImport = getline('.') =~ '^import'
   def FindStart(): number
     var line = getline('.')
     var start = col('.') - 1
-    while start > 0 && (line[start - 1] =~ '\a' || line[start - 1] == '.')
-      start -= 1
-    endwhile
+    if isImport
+      start = 7
+    else
+      while start > 0 && (line[start - 1] =~ '\a' || line[start - 1] == '.')
+        start -= 1
+      endwhile
+    endif
     return start
   enddef
 
@@ -82,7 +96,7 @@ export def HaskellComplete(findstart: number, base: string): any
     return FindStart()
   else
     var pattern: string
-    if getline('.') =~ '^import'
+    if isImport
       pattern = 'import ' .. base
     else
       pattern = base
@@ -94,19 +108,32 @@ export def HaskellComplete(findstart: number, base: string): any
   endif
 enddef
 
-export def Module()
+export def Module(): string
   var pos = getpos('.')
+  var regBackup = @m
+
   :g/^module/execute 'y m | @m = split(@m)[1]'
-  ghci.SendCommand(':module + *' .. @m, 0)
+  var moduleName = @m
+
+  var cmd = ':module + *' .. moduleName
+  ghci.SendCommand(cmd, 0)
+  ghci.AddLinesToBuffer(cmd, [])
+
+  @m = regBackup
   setpos('.', pos)
+  return moduleName
 enddef
 
 export def Add()
-  ghci.SendCommand(':add *' .. expand("%:p"), 0)
+  var cmd = ':add *' .. expand("%:p")
+  ghci.SendCommand(cmd, 0)
+  ghci.AddLinesToBuffer(cmd, [])
 enddef
 
 export def Reload()
-  ghci.SendCommand(':reload!', 0)
+  var cmd = ':reload!'
+  ghci.SendCommand(cmd, 0)
+  ghci.AddLinesToBuffer(cmd, [])
   Module()
 enddef
 
